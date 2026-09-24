@@ -4,6 +4,9 @@ A small Next.js app that signs in to Garmin Connect and charts your sleep score,
 and overnight HRV. It's built on [`garminconnect-js`](https://github.com/DynamicsNinja/garminconnect-js),
 and it's meant to be copied: click **Use this template**, then make it yours.
 
+**Live demo:** [garmin.ficdev.xyz](https://garmin.ficdev.xyz). It shows synthetic data until you
+sign in with your own Garmin account.
+
 ![The dashboard, showing synthetic demo data](docs/screenshot.png)
 
 <sub>**Unofficial.** Not affiliated with, endorsed by, or supported by Garmin. Garmin and Garmin
@@ -72,8 +75,13 @@ for everyone.
 4. Run **one** instance. The rate limiter counts in memory; several replicas would each keep their
    own count, so share it through Redis before scaling out.
 
-Garmin's sign-in sometimes refuses logins from cloud and datacenter IP ranges. If every sign-in on
-your deployment fails while the same account works locally, that is the likely cause, not the code.
+Garmin rate limits its mobile sign-in step, often after one or two sign-ins from the same server
+IP. When that happens, `garminconnect-js` (0.3.0 and later) signs in once more through Garmin's
+SSO web widget. A sign-in can then take ten seconds or so: the library pauses a few seconds before
+posting the password, so the request looks less like a bot. If a sign-in still fails, the error
+names what Garmin refused: a 429 on `/sso/signin` means the widget is rate limited too, and a 403
+or "Just a moment..." means Cloudflare challenged the server. Either way it is Garmin blocking the
+server's IP, not a wrong password.
 
 ## How it's built
 
