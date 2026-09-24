@@ -7,11 +7,21 @@ import { Call } from "@/components/Call";
 import { ColumnChart, LineChart } from "@/components/charts";
 import { LoginForm } from "@/components/LoginForm";
 import { formatDuration, formatStart, toActivities, typeLabel, type ActivityRow } from "@/lib/activities";
-import { demoActivities, demoBadges, demoHeart, demoNights, demoRecords } from "@/lib/demo";
+import { badgeDescriptions } from "@/lib/badge-text";
+import { demoActivities, demoBadges, demoHeart, demoNights, demoRecords, demoSeries } from "@/lib/demo";
 import { getGarmin } from "@/lib/garmin";
 import { toHeartDays, type HeartDay } from "@/lib/heart";
 import { MODE } from "@/lib/mode";
-import { formatRecord, toBadges, toRecords, type Badge, type PersonalRecordRow } from "@/lib/records";
+import {
+  formatRecord,
+  seriesCandidate,
+  toBadges,
+  toRecords,
+  toSeries,
+  type Badge,
+  type BadgeSeries,
+  type PersonalRecordRow,
+} from "@/lib/records";
 import { eachDay, formatHours, range, shortDate, toNights, type Night } from "@/lib/sleep";
 import styles from "./page.module.css";
 
@@ -65,15 +75,20 @@ export default async function Home({
   let heart: HeartDay[] | null = null;
   let records: { records: PersonalRecordRow[]; other: number } | null = null;
   let badges: Badge[] | null = null;
-  const errors: Partial<Record<"rhr" | "hrv" | "records" | "badges", string>> = {};
+  // The series around the newest series badge, and the badge `getBadgeDetail` was called for.
+  let series: BadgeSeries | null = null;
+  let seriesFor: Badge | undefined;
+  const errors: Partial<Record<"rhr" | "hrv" | "records" | "badges" | "series", string>> = {};
   // Milliseconds per call; null for synthetic data, which calls nothing.
-  let ms: Partial<Record<"name" | "sleep" | "activities" | "rhr" | "hrv" | "records" | "badges", number>> | null = null;
+  let ms: Partial<Record<"name" | "sleep" | "activities" | "rhr" | "hrv" | "records" | "badges" | "series", number>> | null =
+    null;
   if (!garmin) {
     [nights, activities, name] = [demoNights(start, end), demoActivities(start, end), "Demo athlete"];
     [heart, records, badges] = [demoHeart(start, end), { records: demoRecords(end), other: 0 }, demoBadges(end)];
+    [series, seriesFor] = [demoSeries(), seriesCandidate(badges)];
   } else {
     try {
-      const [n, s, a, rhr, hrv, prs, bdg] = await Promise.all([
+      const [n, s, a, rhr, hrv, prs, bdg, text] = await Promise.all([
         timed(garmin.fullName()),
         timed(garmin.getSleepDaily(start, end)),
         timed(garmin.getActivitiesByDate(start, end)),
@@ -81,6 +96,7 @@ export default async function Home({
         attempt(garmin.getHrvDataRange(start, end)),
         attempt(garmin.getPersonalRecord()),
         attempt(garmin.getEarnedBadges()),
+        badgeDescriptions(),
       ]);
       [name, nights, activities] = [n.value, toNights(s.value), toActivities(a.value)];
       ms = { name: n.ms, sleep: s.ms, activities: a.ms };
@@ -91,7 +107,14 @@ export default async function Home({
       // One row per day, so a failed RHR or HRV call still leaves the other chart drawn.
       heart = toHeartDays(eachDay(start, end), "value" in rhr ? rhr.value : [], "value" in hrv ? hrv.value : null);
       if ("value" in prs) records = toRecords(prs.value);
-      if ("value" in bdg) badges = toBadges(bdg.value);
+      if ("value" in bdg) badges = toBadges(bdg.value, text);
+      // Needs a badge id from the list above, so it can't join the parallel batch.
+      seriesFor = badges ? seriesCandidate(badges) : undefined;
+      if (seriesFor) {
+        const detail = await attempt(garmin.getBadgeDetail(seriesFor.id));
+        if ("error" in detail) errors.series = detail.error;
+        else [series, ms.series] = [toSeries(detail.value), detail.ms];
+      }
     } catch (e) {
       if (e instanceof GarminAuthError) {
         return <LoginForm mode={MODE} notice="Your Garmin session has expired. Sign in again to reconnect." />;
@@ -286,6 +309,14 @@ export default async function Home({
           ms={ms?.records}
         />
         <Call method="getEarnedBadges" result={outcome("badges", badges?.length ?? 0, "badge", "badges")} ms={ms?.badges} />
+        {seriesFor && (
+          <Call
+            method="getBadgeDetail"
+            args={[seriesFor.id]}
+            result={outcome("series", series?.steps.length ?? 0, "badge in its series", "badges in its series")}
+            ms={ms?.series}
+          />
+        )}
         <div className={`${styles.body} ${styles.split}`}>
           <div>
             <h2 id="records-title" className={styles.heading}>
@@ -332,8 +363,25 @@ export default async function Home({
                 <ul className={styles.badges}>
                   {badges.slice(0, BADGE_LIMIT).map((b) => (
                     <li key={b.id}>
-                      <strong>{b.name}</strong>
-                      {b.times > 1 && <span className={styles.times}>×{b.times}</span>}
+                      <BadgeArt image={b.image} />
+                      <span className={styles.badgeText}>
+                        <span className={styles.badgeTitle}>
+                          <strong>{b.name}</strong>
+                          {b.times > 1 && <span className={styles.times}>×{b.times}</span>}
+                        </span>
+                        {(b.description || b.activity) && (
+                          <span className={styles.badgeMeta}>
+                            {b.description}
+                            {b.description && b.activity && " · "}
+                            {b.activity &&
+                              (b.activity.id ? (
+                                <a href={`https://connect.garmin.com/modern/activity/${b.activity.id}`}>{b.activity.name}</a>
+                              ) : (
+                                b.activity.name
+                              ))}
+                          </span>
+                        )}
+                      </span>
                       <span className={styles.badgeDate}>{b.earned ? shortDate(b.earned) : ""}</span>
                     </li>
                   ))}
@@ -342,6 +390,20 @@ export default async function Home({
                   <p className={styles.more}>
                     Showing the latest {BADGE_LIMIT} of {badges.length}.
                   </p>
+                )}
+                {series && (
+                  <>
+                    <h3 className={styles.subheading}>The {series.name} series</h3>
+                    <ol className={styles.series}>
+                      {series.steps.map((s) => (
+                        <li key={s.id} data-earned={s.earned} aria-current={s.current ? "step" : undefined}>
+                          <BadgeArt image={s.image} />
+                          <span>{s.name}</span>
+                          <span className={styles.srOnly}>{s.earned ? "earned" : "not earned yet"}</span>
+                        </li>
+                      ))}
+                    </ol>
+                  </>
                 )}
               </>
             )}
@@ -355,6 +417,17 @@ export default async function Home({
         Unofficial — not affiliated with or endorsed by Garmin.
       </footer>
     </main>
+  );
+}
+
+/** Garmin's badge artwork, or a plain disc for synthetic badges, which have none. */
+function BadgeArt({ image }: { image: string | null }) {
+  return image ? (
+    // A plain <img>: next/image would proxy Garmin's artwork through this server.
+    // eslint-disable-next-line @next/next/no-img-element
+    <img src={image} alt="" width={32} height={37} loading="lazy" referrerPolicy="no-referrer" className={styles.badgeImage} />
+  ) : (
+    <span className={styles.badgeImage} aria-hidden="true" />
   );
 }
 

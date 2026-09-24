@@ -4,7 +4,7 @@ import styles from "./Call.module.css";
  * The library call that produced the panel below it, printed with its real arguments and what came
  * back. This page is a demo of `garminconnect-js`, so the code is part of the content.
  */
-export function Call(props: { method: string; args?: string[]; result: string; ms?: number | null }) {
+export function Call(props: { method: string; args?: (string | number)[]; result: string; ms?: number | null }) {
   const args = props.args ?? [];
   return (
     <div className={styles.call}>
@@ -13,7 +13,7 @@ export function Call(props: { method: string; args?: string[]; result: string; m
         {args.map((a, i) => (
           <span key={i}>
             {i > 0 && ", "}
-            <span className={styles.str}>&quot;{a}&quot;</span>
+            {typeof a === "number" ? a : <span className={styles.str}>&quot;{a}&quot;</span>}
           </span>
         ))}
         )

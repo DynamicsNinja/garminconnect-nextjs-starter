@@ -392,7 +392,7 @@ div.demo {
 
 .badges li {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   gap: 8px;
   padding: 8px 0;
   border-bottom: 1px solid var(--grid);
@@ -400,6 +400,20 @@ div.demo {
 
 .badges li:last-child {
   border-bottom: 0;
+}
+
+.badgeText {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.badgeTitle {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
 }
 
 .badges strong {
@@ -410,6 +424,71 @@ div.demo {
   white-space: nowrap;
 }
 
+.badgeMeta {
+  font-size: 0.8rem;
+  line-height: 1.4;
+  color: var(--text-secondary);
+}
+
+.badgeMeta a {
+  color: var(--text-primary);
+}
+
+.subheading {
+  margin: 20px 0 10px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+/* A badge series, left to right; badges not earned yet are greyed out. */
+.series {
+  display: flex;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.series li {
+  flex: 1 1 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  padding: 8px 2px;
+  border-radius: 8px;
+  font-size: 0.72rem;
+  text-align: center;
+  color: var(--text-secondary);
+}
+
+.series li[aria-current="step"] {
+  background: var(--surface-2);
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.series li[data-earned="false"] .badgeImage {
+  filter: grayscale(1);
+  opacity: 0.35;
+}
+
+.badgeImage {
+  flex-shrink: 0;
+  width: 32px;
+  height: 37px;
+  object-fit: contain;
+}
+
+span.badgeImage {
+  height: 32px;
+  margin-block: 2px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+}
+
 .times {
   font-size: 0.78rem;
   font-weight: 600;
@@ -418,6 +497,8 @@ div.demo {
 }
 
 .badgeDate {
+  align-self: flex-start;
+  padding-top: 2px;
   margin-left: auto;
   flex-shrink: 0;
   font-size: 0.82rem;

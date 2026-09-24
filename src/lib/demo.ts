@@ -1,6 +1,6 @@
 import { sportOf, type ActivityRow } from "./activities";
 import type { HeartDay } from "./heart";
-import type { Badge, PersonalRecordRow } from "./records";
+import type { Badge, BadgeSeries, PersonalRecordRow } from "./records";
 import { eachDay, type Night } from "./sleep";
 
 /**
@@ -95,17 +95,35 @@ export function demoRecords(end: string): PersonalRecordRow[] {
 }
 
 export function demoBadges(end: string): Badge[] {
-  const rows: [string, number, number][] = [
-    ["Parkrun Regular", 12, 1],
-    ["Weekend Warrior", 19, 4],
-    ["Trail Blazer", 26, 1],
-    ["Early Bird", 33, 6],
-    ["Century Ride", 58, 1],
-    ["Pool Party", 74, 2],
-    ["Step Streak 30", 101, 1],
-    ["Summit Seeker", 140, 1],
-    ["Half Marathon", 180, 1],
-    ["First Activity", 400, 1],
+  const rows: [string, number, number, string, string | null][] = [
+    ["Parkrun Regular", 12, 1, "Record five runs on a Saturday morning.", "Parkrun"],
+    ["Weekend Warrior", 19, 4, "Record an activity on both days of a weekend.", null],
+    ["Trail Blazer", 26, 1, "Run 25 kilometers on trails in a single activity.", "Long trail run"],
+    ["Early Bird", 33, 6, "Start an activity before 6 a.m.", "Easy run"],
+    ["Century Ride", 58, 1, "Ride 100 kilometers in a single activity.", "Lunch ride"],
+    ["Pool Party", 74, 2, "Swim 2 kilometers in a single activity.", "Pool swim"],
+    ["Step Streak 30", 101, 1, "Meet your step goal 30 days in a row.", null],
+    ["Summit Seeker", 140, 1, "Climb 1,000 meters in a single activity.", "Ridge hike"],
+    ["Half Marathon", 180, 1, "Run 13.1 miles (21.1 km) in a single activity.", "City half"],
+    ["First Activity", 400, 1, "Record your first activity.", null],
   ];
-  return rows.map(([name, ago, times], i) => ({ id: i + 1, name, earned: daysBefore(end, ago), times }));
+  // No artwork: synthetic badges shouldn't borrow real Garmin badges' images.
+  return rows.map(([name, ago, times, description, activity], i) => ({
+    id: i + 1,
+    name,
+    earned: daysBefore(end, ago),
+    times,
+    image: null,
+    description,
+    activity: activity ? { id: "", name: activity } : null,
+    seriesId: name === "Half Marathon" ? 20 : null,
+  }));
+}
+
+export function demoSeries(): BadgeSeries {
+  const steps: [string, boolean][] = [["Milestone", true], ["5K Run", true], ["10K Run", true], ["Half Marathon", true], ["Marathon", false]];
+  return {
+    name: "Half Marathon",
+    steps: steps.map(([name, earned], i) => ({ id: i + 1, name, image: null, earned, current: name === "Half Marathon" })),
+  };
 }

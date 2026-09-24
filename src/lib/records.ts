@@ -1,4 +1,4 @@
-import type { Badge as GarminBadge, PersonalRecords } from "garminconnect-js";
+import type { BadgeDetail, Badge as GarminBadge, PersonalRecords } from "garminconnect-js";
 
 /** One running personal record, flattened from `getPersonalRecord`'s rows. */
 export interface PersonalRecordRow {
@@ -21,6 +21,21 @@ export interface Badge {
   earned: string;
   /** How many times it was earned; 1 for one-off badges. */
   times: number;
+  /** Garmin's badge artwork, or null when the row has no id to build it from. */
+  image: string | null;
+  /** What earning it takes, from Garmin's translation file (`badge-text.ts`); `""` if unknown. */
+  description: string;
+  /** The activity that earned it, for activity badges; null for challenges and the like. */
+  activity: { id: string; name: string } | null;
+  /** Set when the badge is one step of a series (1 mile, 5K, 10K...); see `getBadgeDetail`. */
+  seriesId: number | null;
+}
+
+/** A badge series around one earned badge, from `getBadgeDetail`: every step, in order. */
+export interface BadgeSeries {
+  /** The earned badge the series was fetched for. */
+  name: string;
+  steps: { id: number; name: string; image: string | null; earned: boolean; current: boolean }[];
 }
 
 // The running `typeId`s the library documents on `PersonalRecord`. Garmin has more (cycling,
@@ -70,18 +85,61 @@ export function toRecords(rows: PersonalRecords | null): { records: PersonalReco
 }
 
 /**
- * `badgeId` and `badgeEarnedNumber` are typed by the library; `badgeName` and `badgeEarnedDate`
- * ride on its index signature, so a missing one falls back rather than failing. Newest first.
+ * The API sends no image URL. Garmin Connect's own badge page builds it from `badgeUuid` (set on
+ * newer challenge badges) or else `badgeId`, and serves it without a session. `xhdpi` `sml` is
+ * ~130px wide: sharp at the size the page draws it.
  */
-export function toBadges(rows: GarminBadge[] | null): Badge[] {
-  return (rows ?? [])
+function badgeImage(b: { badgeId?: number; badgeUuid?: unknown }): string | null {
+  const key = str(b.badgeUuid) || (b.badgeId === undefined ? "" : String(b.badgeId));
+  return /^[A-Za-z0-9]+$/.test(key) ? `https://connect.garmin.com/images/badges/xhdpi/badge_${key}_sml.png` : null;
+}
+
+/**
+ * `getEarnedBadges` rows are typed loosely (`Badge`); the fields read here are the ones 0.4.0 types
+ * on `BadgeDetail`, which the same rows carry, so they're read through that type. A missing one
+ * falls back rather than failing. Newest first.
+ */
+export function toBadges(rows: GarminBadge[] | null, descriptions: Map<string, string>): Badge[] {
+  return ((rows ?? []) as BadgeDetail[])
     .map((b, i) => ({
       id: b.badgeId ?? -i,
-      name: str(b["badgeName"]) || "Badge",
-      earned: day(b["badgeEarnedDate"]),
+      name: str(b.badgeName) || "Badge",
+      earned: day(b.badgeEarnedDate),
       times: b.badgeEarnedNumber ?? 1,
+      image: badgeImage(b),
+      description: descriptions.get(str(b.badgeKey)) ?? "",
+      activity:
+        b.badgeAssocType === "activityId" && b.badgeAssocDataId
+          ? { id: b.badgeAssocDataId, name: str(b.badgeAssocDataName) || "Activity" }
+          : null,
+      seriesId: num(b.badgeSeriesId),
     }))
     .sort((a, b) => b.earned.localeCompare(a.earned));
+}
+
+/**
+ * `getBadgeDetail` returns the badge plus `relatedBadges`: the rest of its series, without itself.
+ * Put it back and order the steps by difficulty, then points, which is how Garmin ranks them
+ * (1 mile → 5K → 10K → half → marathon).
+ */
+export function toSeries(detail: BadgeDetail | null): BadgeSeries | null {
+  if (!detail?.badgeId || !detail.relatedBadges?.length) return null;
+  const steps = [{ ...detail, earnedByMe: true }, ...detail.relatedBadges]
+    .filter((b) => b.badgeId !== undefined)
+    .sort((a, b) => (a.badgeDifficultyId ?? 0) - (b.badgeDifficultyId ?? 0) || (a.badgePoints ?? 0) - (b.badgePoints ?? 0))
+    .map((b) => ({
+      id: b.badgeId!,
+      name: str(b.badgeName) || "Badge",
+      image: badgeImage(b),
+      earned: b.earnedByMe === true,
+      current: b.badgeId === detail.badgeId,
+    }));
+  return { name: str(detail.badgeName) || "Badge", steps };
+}
+
+/** The newest earned badge that belongs to a series: the one worth a `getBadgeDetail` call. */
+export function seriesCandidate(badges: Badge[]): Badge | undefined {
+  return badges.find((b) => b.seriesId !== null && b.id > 0);
 }
 
 /** `1234.5` seconds → `20:34`; over an hour → `1:42:07`. */

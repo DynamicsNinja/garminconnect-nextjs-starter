@@ -25,13 +25,15 @@ data.</sub>
   time, its distance and its duration.
 - **Heart:** resting heart rate and overnight HRV for the same range, as line charts.
 - **Personal records and badges:** your running records (1 km to marathon, and longest run), each
-  linked to its activity, and your latest earned badges.
+  linked to its activity; your latest badges with Garmin's artwork, what each one takes and the
+  activity that earned it; and the series around your newest series badge (1 mile → 5K → 10K...),
+  with the steps you haven't earned greyed out.
 - **Sign-in with MFA:** if Garmin sends you a code, a second step asks for it.
 
-Seven library calls fill the page: `garmin.fullName()`, `getSleepDaily(start, end)`,
+Eight library calls fill the page: `garmin.fullName()`, `getSleepDaily(start, end)`,
 `getActivitiesByDate(start, end)`, `getRhrDaily(start, end)`, `getHrvDataRange(start, end)`,
-`getPersonalRecord()` and `getEarnedBadges()`. If one of the last four fails, only its panel says
-so; the rest of the page still loads. The charts and icons are plain SVG and add no
+`getPersonalRecord()`, `getEarnedBadges()` and `getBadgeDetail(id)`. If one of the last five
+fails, only its panel says so; the rest of the page still loads. The charts and icons are plain SVG and add no
 dependencies.
 
 ## Run it
@@ -108,7 +110,8 @@ server's IP, not a wrong password.
 | `src/lib/sleep.ts` | Flattens `getSleepDaily` rows into the `Night` shape the page uses. |
 | `src/lib/activities.ts` | Flattens `getActivitiesByDate` rows and groups Garmin's type keys into sports. |
 | `src/lib/heart.ts` | Joins `getRhrDaily` and `getHrvDataRange` into one row per day. |
-| `src/lib/records.ts` | Flattens `getPersonalRecord` and `getEarnedBadges` rows. |
+| `src/lib/records.ts` | Flattens `getPersonalRecord`, `getEarnedBadges` and `getBadgeDetail` rows. |
+| `src/lib/badge-text.ts` | Badge descriptions from Garmin's public translation file, cached for a day. |
 | `src/lib/demo.ts` | Deterministic synthetic data for every panel, for demo mode. |
 | `src/components/Call.tsx` | The call bar above each panel: method, arguments, rows returned, time taken. |
 | `src/components/ActivityIcon.tsx` | Inline SVG icons, one per sport. |
