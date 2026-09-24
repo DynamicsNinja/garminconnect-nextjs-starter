@@ -1,69 +1,120 @@
-import Image from "next/image";
+import Link from "next/link";
+import { connection } from "next/server";
+import { GarminAuthError } from "garminconnect-js";
+import { logout } from "@/app/actions";
+import { ColumnChart, LineChart } from "@/components/charts";
+import { LoginForm } from "@/components/LoginForm";
+import { demoNights } from "@/lib/demo";
+import { getGarmin } from "@/lib/garmin";
+import { formatHours, range, toNights, type Night } from "@/lib/sleep";
 import styles from "./page.module.css";
 
-export default function Home() {
+const RANGES = [7, 30, 90] as const;
+
+export default async function Home({ searchParams }: { searchParams: Promise<{ days?: string }> }) {
+  await connection(); // always render per request: this page reads live account data
+  const demo = process.env.GARMIN_DEMO === "1";
+  const garmin = demo ? null : await getGarmin();
+  if (!demo && !garmin) return <LoginForm />;
+
+  const requested = Number((await searchParams).days);
+  const days = RANGES.find((r) => r === requested) ?? 30;
+  const { start, end } = range(days);
+
+  let nights: Night[];
+  let name: string;
+  if (!garmin) {
+    [nights, name] = [demoNights(start, end), "Demo data — GARMIN_DEMO=1"];
+  } else {
+    try {
+      // One call covers everything below: getSleepDaily carries score, duration, HRV and resting HR.
+      [nights, name] = await Promise.all([garmin.getSleepDaily(start, end).then(toNights), garmin.fullName()]);
+    } catch (e) {
+      if (e instanceof GarminAuthError) {
+        return <LoginForm notice="Your Garmin session has expired. Sign in again to reconnect." />;
+      }
+      throw e;
+    }
+  }
+
+  const dates = nights.map((n) => n.date);
+  const last = nights.findLast((n) => n.score !== null || n.hours !== null);
+
   return (
-    <div className={styles.page}>
-      <main className={styles.main}>
-        <Image
-          className={styles.logo}
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className={styles.intro}>
-          <h1>
-            To get started, edit the{" "}
-            <code className={styles.code}>page.tsx</code> file.
-          </h1>
-          <p>
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+    <main className={styles.main}>
+      <header className={styles.header}>
+        <div>
+          <h1>Sleep &amp; HRV</h1>
+          <p className={styles.sub}>{name}</p>
         </div>
-        <div className={styles.ctas}>
-          <a
-            className={styles.primary}
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className={styles.logo}
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={14}
+        {garmin && (
+          <form action={logout}>
+            <button className={styles.ghost}>Disconnect</button>
+          </form>
+        )}
+      </header>
+
+      <nav className={styles.ranges} aria-label="Date range">
+        {RANGES.map((r) => (
+          <Link key={r} href={`/?days=${r}`} aria-current={r === days ? "page" : undefined}>
+            Last {r} days
+          </Link>
+        ))}
+      </nav>
+
+      {nights.length === 0 ? (
+        <p className={styles.empty}>
+          No sleep data between {start} and {end}. Wear your watch to bed and sync it, then reload.
+        </p>
+      ) : (
+        <>
+          <section className={styles.tiles} aria-label="Last night">
+            <Tile label="Sleep score" value={last?.score ?? null} />
+            <Tile label="Sleep" value={last?.hours ?? null} format={formatHours} />
+            <Tile label="Overnight HRV" value={last?.hrv ?? null} unit="ms" />
+            <Tile label="Resting heart rate" value={last?.restingHr ?? null} unit="bpm" />
+          </section>
+
+          <section className={styles.charts}>
+            <ColumnChart
+              title="Sleep score"
+              dates={dates}
+              values={nights.map((n) => n.score)}
+              yMax={100}
+              unit="score"
             />
-            Deploy Now
-          </a>
-          <a
-            className={styles.secondary}
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
+            <ColumnChart title="Sleep duration" dates={dates} values={nights.map((n) => n.hours)} unit="hours" />
+            <LineChart
+              title="Overnight HRV (ms)"
+              dates={dates}
+              series={[
+                { name: "Nightly average", values: nights.map((n) => n.hrv), tone: "primary" },
+                { name: "7-day average", values: nights.map((n) => n.hrv7d), tone: "secondary" },
+              ]}
+              unit="ms"
+              wide
+            />
+          </section>
+        </>
+      )}
+
+      <footer className={styles.footer}>
+        Built with <a href="https://github.com/DynamicsNinja/garminconnect-js">garminconnect-js</a>.
+        Unofficial — not affiliated with or endorsed by Garmin.
+      </footer>
+    </main>
+  );
+}
+
+function Tile(props: { label: string; value: number | null; unit?: string; format?: (v: number | null) => string }) {
+  const text = props.format ? props.format(props.value) : props.value === null ? "—" : String(Math.round(props.value));
+  return (
+    <div className={styles.tile}>
+      <span className={styles.tileLabel}>{props.label}</span>
+      <span className={styles.tileValue}>
+        {text}
+        {props.value !== null && props.unit && <small> {props.unit}</small>}
+      </span>
     </div>
   );
 }
