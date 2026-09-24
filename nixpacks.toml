@@ -1,0 +1,9 @@
+# Nixpacks build (Dokploy, Railway, Coolify…). Next.js 16 needs Node 20.9 or newer.
+[variables]
+NIXPACKS_NODE_VERSION = "22"
+NEXT_TELEMETRY_DISABLED = "1"
+
+[start]
+# In a container the server must listen on every interface; `npm start` binds 127.0.0.1 for
+# local safety. PORT is set by the platform; 3000 otherwise.
+cmd = "npx next start -H 0.0.0.0 -p ${PORT:-3000}"

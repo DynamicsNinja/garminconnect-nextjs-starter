@@ -26,4 +26,10 @@ Python's `garminconnect`.
   `restingHeartRate`) were read off a real account; the library types the row loosely. Map them in
   `src/lib/sleep.ts`, nowhere else.
 - **Dates are UTC calendar dates**, which is how Garmin keys them.
+- **Three modes** (`src/lib/mode.ts`): `local` (tokens on disk), `public` (`GARMIN_PUBLIC=1`:
+  each visitor's tokens only in their own encrypted cookie — never add server-side storage of
+  another person's tokens or health data here), `demo` (`GARMIN_DEMO=1`: sign-in disabled).
+- **Every Server Action is a public endpoint**, whether or not the UI shows its form. Keep the
+  mode checks and the rate limit at the top of `signIn`; a new action that talks to Garmin needs
+  the same treatment.
 - **`GARMIN_DEMO=1`** renders synthetic data — use it for screenshots, never real health data.

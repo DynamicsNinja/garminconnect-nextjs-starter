@@ -4,6 +4,8 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { GarminAuthError, type MfaState } from "garminconnect-js";
 import { newClient, tokenStore } from "@/lib/garmin";
+import { MODE } from "@/lib/mode";
+import { allowSignIn } from "@/lib/rate-limit";
 import { seal, unseal } from "@/lib/seal";
 
 export type LoginState = { step: "credentials" | "mfa"; error?: string };
@@ -19,7 +21,14 @@ function message(e: unknown): string {
 
 /** One action for both steps, so the form has a single state: the MFA form posts a `code`. */
 export async function signIn(_prev: LoginState, form: FormData): Promise<LoginState> {
-  return form.has("code") ? verifyMfa(form) : login(form);
+  // Demo mode never renders the login form — but a Server Action is still a public POST endpoint,
+  // so without this a demo deployment would relay anyone's Garmin login attempts.
+  if (MODE === "demo") return { step: "credentials", error: "Sign-in is disabled in demo mode." };
+  const step = form.has("code") ? "mfa" : "credentials";
+  if (MODE === "public" && !(await allowSignIn())) {
+    return { step, error: "Too many sign-in attempts. Wait 15 minutes and try again." };
+  }
+  return step === "mfa" ? verifyMfa(form) : login(form);
 }
 
 async function login(form: FormData): Promise<LoginState> {
@@ -65,6 +74,6 @@ async function verifyMfa(form: FormData): Promise<LoginState> {
 }
 
 export async function logout(): Promise<void> {
-  await tokenStore.clear();
+  if (MODE !== "demo") await tokenStore.clear();
   redirect("/");
 }

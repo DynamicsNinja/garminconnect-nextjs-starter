@@ -19,6 +19,24 @@
   margin: 0 0 20px;
 }
 
+.lead p {
+  margin: 0 0 8px;
+}
+
+.lead ul {
+  margin: 0 0 8px;
+  padding-left: 18px;
+}
+
+.lead li {
+  margin-bottom: 4px;
+}
+
+.back {
+  margin: 16px 0 0;
+  font-size: 0.85rem;
+}
+
 .notice {
   font-size: 0.9rem;
   padding: 8px 12px;
