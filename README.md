@@ -1,7 +1,7 @@
 # garminconnect-js live demo — a Next.js starter
 
-A small Next.js app that signs in to Garmin Connect and shows your sleep and your recent
-activities. It's the live demo for [`garminconnect-js`](https://github.com/DynamicsNinja/garminconnect-js):
+A small Next.js app that signs in to Garmin Connect and shows your sleep, heart
+data, recent activities, personal records and badges. It's the live demo for [`garminconnect-js`](https://github.com/DynamicsNinja/garminconnect-js):
 each panel prints the library call that filled it, with its real arguments, the number of rows
 that came back, and how long Garmin took. It's also meant to be copied: click **Use this
 template**, then make it yours.
@@ -17,16 +17,21 @@ data.</sub>
 
 ## What it shows
 
-- **At a glance:** last night's sleep score and time asleep, plus how many activities you logged
-  and your total active time over the selected range.
+- **At a glance:** last night's sleep score, time asleep and HRV, your latest resting heart rate,
+  plus how many activities you logged and your total active time over the selected range.
 - **Sleep for 7, 30 or 90 days:** sleep score and duration charts. Hover a chart for exact
   values, or open its table.
 - **Activities:** your latest activities in the range, each with a sport icon, its type, its start
   time, its distance and its duration.
+- **Heart:** resting heart rate and overnight HRV for the same range, as line charts.
+- **Personal records and badges:** your running records (1 km to marathon, and longest run), each
+  linked to its activity, and your latest earned badges.
 - **Sign-in with MFA:** if Garmin sends you a code, a second step asks for it.
 
-Three library calls fill the page: `garmin.fullName()`, `garmin.getSleepDaily(start, end)` and
-`garmin.getActivitiesByDate(start, end)`. The charts and icons are plain SVG and add no
+Seven library calls fill the page: `garmin.fullName()`, `getSleepDaily(start, end)`,
+`getActivitiesByDate(start, end)`, `getRhrDaily(start, end)`, `getHrvDataRange(start, end)`,
+`getPersonalRecord()` and `getEarnedBadges()`. If one of the last four fails, only its panel says
+so; the rest of the page still loads. The charts and icons are plain SVG and add no
 dependencies.
 
 ## Run it
@@ -102,10 +107,12 @@ server's IP, not a wrong password.
 | `src/lib/seal.ts` | AES-256-GCM sealing for the MFA and token cookies. |
 | `src/lib/sleep.ts` | Flattens `getSleepDaily` rows into the `Night` shape the page uses. |
 | `src/lib/activities.ts` | Flattens `getActivitiesByDate` rows and groups Garmin's type keys into sports. |
-| `src/lib/demo.ts` | Deterministic synthetic sleep and activities for demo mode. |
+| `src/lib/heart.ts` | Joins `getRhrDaily` and `getHrvDataRange` into one row per day. |
+| `src/lib/records.ts` | Flattens `getPersonalRecord` and `getEarnedBadges` rows. |
+| `src/lib/demo.ts` | Deterministic synthetic data for every panel, for demo mode. |
 | `src/components/Call.tsx` | The call bar above each panel: method, arguments, rows returned, time taken. |
 | `src/components/ActivityIcon.tsx` | Inline SVG icons, one per sport. |
-| `src/components/charts.tsx` | Dependency-free SVG column charts, with hover and table views. |
+| `src/components/charts.tsx` | Dependency-free SVG column and line charts, with hover and table views. |
 
 The library only runs on the server: it uses `node:crypto`, and your tokens must never reach the
 browser. Everything that touches Garmin lives in Server Components and Server Actions.

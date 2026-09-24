@@ -12,30 +12,39 @@ const PLOT_W = W - PAD.left - PAD.right;
 const PLOT_H = H - PAD.top - PAD.bottom;
 
 /** Formatters live here, not in props: a Server Component cannot pass functions to a Client one. */
-export type Unit = "score" | "hours";
+export type Unit = "score" | "hours" | "bpm" | "ms";
 const FORMAT: Record<Unit, (v: number | null) => string> = {
   score: (v) => (v === null ? "—" : String(Math.round(v))),
   hours: formatHours,
+  bpm: (v) => (v === null ? "—" : `${Math.round(v)} bpm`),
+  ms: (v) => (v === null ? "—" : `${Math.round(v)} ms`),
 };
 
-/** Clean round ticks from 0 to a nice max. */
-function ticks(max: number): number[] {
-  const raw = max / 3;
+/** Clean round ticks from `min` (0 for columns) to a nice max. */
+function ticks(max: number, min = 0): number[] {
+  const raw = (max - min) / 3;
   const pow = 10 ** Math.floor(Math.log10(raw || 1));
   const step = [1, 2, 2.5, 5, 10].map((m) => m * pow).find((s) => s >= raw) ?? raw;
-  const top = Math.max(step, Math.ceil(max / step) * step);
+  const bottom = Math.floor(min / step) * step;
+  const top = Math.max(bottom + step, Math.ceil(max / step) * step);
   const out: number[] = [];
-  for (let t = 0; t <= top + 1e-9; t += step) out.push(Math.round(t * 100) / 100);
+  for (let t = bottom; t <= top + 1e-9; t += step) out.push(Math.round(t * 100) / 100);
   return out;
 }
 
-function Axes({ yTicks, yMax, labels }: { yTicks: number[]; yMax: number; labels: [number, string][] }) {
-  const y = (v: number) => PAD.top + PLOT_H - (v / yMax) * PLOT_H;
+/** Maps a value onto the plot's y, between the first and last tick. */
+function yScale(yTicks: number[]) {
+  const [lo, hi] = [yTicks[0]!, yTicks[yTicks.length - 1]!];
+  return (v: number) => PAD.top + PLOT_H - ((v - lo) / (hi - lo || 1)) * PLOT_H;
+}
+
+function Axes({ yTicks, labels }: { yTicks: number[]; labels: [number, string][] }) {
+  const y = yScale(yTicks);
   return (
     <g className={styles.axis} aria-hidden="true">
-      {yTicks.map((t) => (
+      {yTicks.map((t, i) => (
         <g key={t}>
-          <line x1={PAD.left} x2={W - PAD.right} y1={y(t)} y2={y(t)} className={t === 0 ? styles.baseline : styles.grid} />
+          <line x1={PAD.left} x2={W - PAD.right} y1={y(t)} y2={y(t)} className={i === 0 ? styles.baseline : styles.grid} />
           <text x={PAD.left - 6} y={y(t)} dy="0.32em" textAnchor="end">
             {t}
           </text>
@@ -98,11 +107,10 @@ export function ColumnChart(props: {
   const [hover, setHover] = useState<number | null>(null);
   const present = values.filter((v): v is number => v !== null);
   const yTicks = ticks(props.yMax ?? Math.max(1, ...present));
-  const yMax = yTicks[yTicks.length - 1]!;
   const slot = PLOT_W / Math.max(1, dates.length);
   const barW = Math.min(24, Math.max(2, slot - 2));
   const xAt = (i: number) => PAD.left + slot * i + slot / 2;
-  const y = (v: number) => PAD.top + PLOT_H - (v / yMax) * PLOT_H;
+  const y = yScale(yTicks);
   // No end label on columns: at 30+ bars it collides with the neighbouring bar, and the stat
   // tiles above already show last night's value. The tooltip and table carry every value.
 
@@ -111,7 +119,7 @@ export function ColumnChart(props: {
       <figcaption className={styles.title}>{title}</figcaption>
       <div className={styles.plot}>
         <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label={`${title}, column chart`}>
-          <Axes yTicks={yTicks} yMax={yMax} labels={dateLabels(dates, xAt)} />
+          <Axes yTicks={yTicks} labels={dateLabels(dates, xAt)} />
           {values.map((v, i) => {
             if (v === null) return null;
             const top = y(v);
@@ -122,6 +130,70 @@ export function ColumnChart(props: {
             const d = `M${x},${top + h} V${top + r} Q${x},${top} ${x + r},${top} H${x + barW - r} Q${x + barW},${top} ${x + barW},${top + r} V${top + h} Z`;
             return <path key={dates[i]} d={d} className={hover === i ? `${styles.bar} ${styles.barHover}` : styles.bar} />;
           })}
+          {dates.map((d, i) => (
+            <rect
+              key={d}
+              x={PAD.left + slot * i}
+              y={PAD.top}
+              width={slot}
+              height={PLOT_H}
+              fill="transparent"
+              tabIndex={0}
+              aria-label={`${shortDate(d)}: ${format(values[i] ?? null)}`}
+              onPointerEnter={() => setHover(i)}
+              onPointerLeave={() => setHover(null)}
+              onFocus={() => setHover(i)}
+              onBlur={() => setHover(null)}
+            />
+          ))}
+        </svg>
+        {hover !== null && (
+          <div className={styles.tooltip} style={{ left: `${(xAt(hover) / W) * 100}%` }}>
+            <strong>{format(values[hover] ?? null)}</strong>
+            <span>{shortDate(dates[hover]!)}</span>
+          </div>
+        )}
+      </div>
+      <DataTable caption={title} dates={dates} columns={[{ name: title, values, format }]} />
+    </figure>
+  );
+}
+
+/**
+ * A line for metrics that drift around a level (resting HR, HRV), where a zero baseline would
+ * flatten the change. Missing days break the line rather than bridging it.
+ */
+export function LineChart(props: { title: string; dates: string[]; values: (number | null)[]; unit: Unit }) {
+  const { title, dates, values } = props;
+  const format = FORMAT[props.unit];
+  const [hover, setHover] = useState<number | null>(null);
+  const present = values.filter((v): v is number => v !== null);
+  const yTicks = present.length ? ticks(Math.max(...present) + 1, Math.min(...present) - 1) : ticks(1);
+  const slot = PLOT_W / Math.max(1, dates.length);
+  const xAt = (i: number) => PAD.left + slot * i + slot / 2;
+  const y = yScale(yTicks);
+  const path = values
+    .map((v, i) => (v === null ? "" : `${i > 0 && values[i - 1] !== null ? "L" : "M"}${xAt(i)},${y(v)}`))
+    .join(" ");
+  const lastIndex = values.findLastIndex((v) => v !== null);
+
+  return (
+    <figure className={styles.card}>
+      <figcaption className={styles.title}>{title}</figcaption>
+      <div className={styles.plot}>
+        <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label={`${title}, line chart`}>
+          <Axes yTicks={yTicks} labels={dateLabels(dates, xAt)} />
+          <path d={path} className={styles.line} />
+          {values.map((v, i) =>
+            v !== null && (i === hover || i === lastIndex || (values[i - 1] ?? null) === null && (values[i + 1] ?? null) === null) ? (
+              <circle key={dates[i]} cx={xAt(i)} cy={y(v)} r={hover === i ? 4.5 : 3} className={styles.dot} />
+            ) : null,
+          )}
+          {lastIndex >= 0 && (
+            <text x={xAt(lastIndex) + 8} y={y(values[lastIndex]!)} dy="0.32em" className={styles.endLabel}>
+              {Math.round(values[lastIndex]!)}
+            </text>
+          )}
           {dates.map((d, i) => (
             <rect
               key={d}

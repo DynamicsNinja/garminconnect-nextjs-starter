@@ -1,5 +1,7 @@
 import { sportOf, type ActivityRow } from "./activities";
-import type { Night } from "./sleep";
+import type { HeartDay } from "./heart";
+import type { Badge, PersonalRecordRow } from "./records";
+import { eachDay, type Night } from "./sleep";
 
 /**
  * Synthetic data for `GARMIN_DEMO=1`, and for public-mode visitors who haven't signed in: try the
@@ -8,14 +10,6 @@ import type { Night } from "./sleep";
  */
 function rng(seed: number) {
   return () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
-}
-
-function eachDay(start: string, end: string): string[] {
-  const days: string[] = [];
-  for (let t = Date.parse(`${start}T00:00:00Z`); t <= Date.parse(`${end}T00:00:00Z`); t += 86_400_000) {
-    days.push(new Date(t).toISOString().slice(0, 10));
-  }
-  return days;
 }
 
 export function demoNights(start: string, end: string): Night[] {
@@ -64,4 +58,54 @@ export function demoActivities(start: string, end: string): ActivityRow[] {
     }
   }
   return rows.sort((a, b) => b.start.localeCompare(a.start));
+}
+
+export function demoHeart(start: string, end: string): HeartDay[] {
+  const rand = rng(23);
+  return eachDay(start, end).map((date, i) => ({
+    date,
+    rhr: Math.round(49 + Math.sin(i / 5) * 2 + rand() * 3),
+    hrv: Math.round(58 + Math.sin(i / 4 + 1) * 6 + rand() * 8),
+  }));
+}
+
+/** Records and badges are dated relative to `end`, so they always look recent. */
+function daysBefore(end: string, days: number): string {
+  return new Date(Date.parse(`${end}T00:00:00Z`) - days * 86_400_000).toISOString().slice(0, 10);
+}
+
+export function demoRecords(end: string): PersonalRecordRow[] {
+  const rows: [number, string, number, PersonalRecordRow["kind"], string, number][] = [
+    [1, "1 km", 228, "time", "Track intervals", 41],
+    [2, "1 mile", 372, "time", "Track intervals", 41],
+    [3, "5 km", 1_274, "time", "Parkrun", 12],
+    [4, "10 km", 2_689, "time", "Riverside 10K", 96],
+    [5, "Half marathon", 5_942, "time", "City half", 180],
+    [7, "Longest run", 28_410, "distance", "Long trail run", 26],
+  ];
+  return rows.map(([typeId, label, value, kind, activityName, ago]) => ({
+    typeId,
+    label,
+    value,
+    kind,
+    activityId: null,
+    activityName,
+    date: daysBefore(end, ago),
+  }));
+}
+
+export function demoBadges(end: string): Badge[] {
+  const rows: [string, number, number][] = [
+    ["Parkrun Regular", 12, 1],
+    ["Weekend Warrior", 19, 4],
+    ["Trail Blazer", 26, 1],
+    ["Early Bird", 33, 6],
+    ["Century Ride", 58, 1],
+    ["Pool Party", 74, 2],
+    ["Step Streak 30", 101, 1],
+    ["Summit Seeker", 140, 1],
+    ["Half Marathon", 180, 1],
+    ["First Activity", 400, 1],
+  ];
+  return rows.map(([name, ago, times], i) => ({ id: i + 1, name, earned: daysBefore(end, ago), times }));
 }

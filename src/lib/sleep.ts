@@ -35,6 +35,15 @@ export function range(days: number): { start: string; end: string } {
   return { start: start.toISOString().slice(0, 10), end: end.toISOString().slice(0, 10) };
 }
 
+/** Every `YYYY-MM-DD` from `start` to `end`, inclusive. */
+export function eachDay(start: string, end: string): string[] {
+  const days: string[] = [];
+  for (let t = Date.parse(`${start}T00:00:00Z`); t <= Date.parse(`${end}T00:00:00Z`); t += 86_400_000) {
+    days.push(new Date(t).toISOString().slice(0, 10));
+  }
+  return days;
+}
+
 export function formatHours(h: number | null): string {
   if (h === null) return "—";
   const whole = Math.floor(h);

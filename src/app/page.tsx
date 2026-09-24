@@ -4,23 +4,40 @@ import { GarminAuthError } from "garminconnect-js";
 import { logout } from "@/app/actions";
 import { ActivityIcon } from "@/components/ActivityIcon";
 import { Call } from "@/components/Call";
-import { ColumnChart } from "@/components/charts";
+import { ColumnChart, LineChart } from "@/components/charts";
 import { LoginForm } from "@/components/LoginForm";
 import { formatDuration, formatStart, toActivities, typeLabel, type ActivityRow } from "@/lib/activities";
-import { demoActivities, demoNights } from "@/lib/demo";
+import { demoActivities, demoBadges, demoHeart, demoNights, demoRecords } from "@/lib/demo";
 import { getGarmin } from "@/lib/garmin";
+import { toHeartDays, type HeartDay } from "@/lib/heart";
 import { MODE } from "@/lib/mode";
-import { formatHours, range, toNights, type Night } from "@/lib/sleep";
+import { formatRecord, toBadges, toRecords, type Badge, type PersonalRecordRow } from "@/lib/records";
+import { eachDay, formatHours, range, shortDate, toNights, type Night } from "@/lib/sleep";
 import styles from "./page.module.css";
 
 const RANGES = [7, 30, 90] as const;
 const LIST_LIMIT = 20;
+const BADGE_LIMIT = 8;
 
 /** Runs a library call and measures it, so each panel can show how long Garmin took. */
 async function timed<T>(call: Promise<T>): Promise<{ value: T; ms: number }> {
   const t = performance.now();
   const value = await call;
   return { value, ms: Math.round(performance.now() - t) };
+}
+
+/**
+ * Like `timed`, but a failure fills only its own panel instead of the whole page. An expired
+ * session still throws, so the page can ask the visitor to sign in again.
+ */
+async function attempt<T>(call: Promise<T>): Promise<{ value: T; ms: number } | { error: string }> {
+  try {
+    return await timed(call);
+  } catch (e) {
+    if (e instanceof GarminAuthError) throw e;
+    console.error(e);
+    return { error: e instanceof Error ? e.name : "Error" };
+  }
 }
 
 export default async function Home({
@@ -44,19 +61,37 @@ export default async function Home({
   let nights: Night[];
   let activities: ActivityRow[];
   let name: string;
+  // The heart, records and badge panels: their rows, or null when their call threw (see `errors`).
+  let heart: HeartDay[] | null = null;
+  let records: { records: PersonalRecordRow[]; other: number } | null = null;
+  let badges: Badge[] | null = null;
+  const errors: Partial<Record<"rhr" | "hrv" | "records" | "badges", string>> = {};
   // Milliseconds per call; null for synthetic data, which calls nothing.
-  let ms: { name: number; sleep: number; activities: number } | null = null;
+  let ms: Partial<Record<"name" | "sleep" | "activities" | "rhr" | "hrv" | "records" | "badges", number>> | null = null;
   if (!garmin) {
     [nights, activities, name] = [demoNights(start, end), demoActivities(start, end), "Demo athlete"];
+    [heart, records, badges] = [demoHeart(start, end), { records: demoRecords(end), other: 0 }, demoBadges(end)];
   } else {
     try {
-      const [n, s, a] = await Promise.all([
+      const [n, s, a, rhr, hrv, prs, bdg] = await Promise.all([
         timed(garmin.fullName()),
         timed(garmin.getSleepDaily(start, end)),
         timed(garmin.getActivitiesByDate(start, end)),
+        attempt(garmin.getRhrDaily(start, end)),
+        attempt(garmin.getHrvDataRange(start, end)),
+        attempt(garmin.getPersonalRecord()),
+        attempt(garmin.getEarnedBadges()),
       ]);
       [name, nights, activities] = [n.value, toNights(s.value), toActivities(a.value)];
       ms = { name: n.ms, sleep: s.ms, activities: a.ms };
+      for (const [key, o] of [["rhr", rhr], ["hrv", hrv], ["records", prs], ["badges", bdg]] as const) {
+        if ("error" in o) errors[key] = o.error;
+        else ms[key] = o.ms;
+      }
+      // One row per day, so a failed RHR or HRV call still leaves the other chart drawn.
+      heart = toHeartDays(eachDay(start, end), "value" in rhr ? rhr.value : [], "value" in hrv ? hrv.value : null);
+      if ("value" in prs) records = toRecords(prs.value);
+      if ("value" in bdg) badges = toBadges(bdg.value);
     } catch (e) {
       if (e instanceof GarminAuthError) {
         return <LoginForm mode={MODE} notice="Your Garmin session has expired. Sign in again to reconnect." />;
@@ -68,7 +103,14 @@ export default async function Home({
   const dates = nights.map((n) => n.date);
   const last = nights.findLast((n) => n.score !== null || n.hours !== null);
   const activeSeconds = activities.reduce((sum, a) => sum + (a.seconds ?? 0), 0);
-  const rows = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}${garmin ? "" : " (synthetic)"}`;
+  const heartDates = heart?.map((d) => d.date) ?? [];
+  const lastRhr = heart?.findLast((d) => d.rhr !== null)?.rhr ?? null;
+  const lastHrv = heart?.findLast((d) => d.hrv !== null)?.hrv ?? null;
+  const count = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
+  const rows = (n: number, one: string, many: string) => `${count(n, one, many)}${garmin ? "" : " (synthetic)"}`;
+  // What a call bar says came back: a count, or the error the call threw.
+  const outcome = (key: keyof typeof errors, n: number, one: string, many: string) =>
+    errors[key] ? `threw ${errors[key]}` : rows(n, one, many);
 
   return (
     <main className={styles.main}>
@@ -139,6 +181,8 @@ export default async function Home({
         <Tile label="Sleep, last night" value={last?.hours ?? null} format={formatHours} />
         <Tile label={`Activities, ${days} days`} value={activities.length} />
         <Tile label={`Active time, ${days} days`} value={activeSeconds} format={formatDuration} />
+        <Tile label="Resting heart rate, latest" value={lastRhr} unit="bpm" />
+        <Tile label="HRV, last night" value={lastHrv} unit="ms" />
       </section>
 
       <section className={styles.panel} aria-labelledby="sleep-title">
@@ -201,6 +245,107 @@ export default async function Home({
               )}
             </>
           )}
+        </div>
+      </section>
+
+      <section className={styles.panel} aria-labelledby="heart-title">
+        <Call
+          method="getRhrDaily"
+          args={[start, end]}
+          result={outcome("rhr", heart?.filter((d) => d.rhr !== null).length ?? 0, "day", "days")}
+          ms={ms?.rhr}
+        />
+        <Call
+          method="getHrvDataRange"
+          args={[start, end]}
+          result={outcome("hrv", heart?.filter((d) => d.hrv !== null).length ?? 0, "night", "nights")}
+          ms={ms?.hrv}
+        />
+        <div className={styles.body}>
+          <h2 id="heart-title" className={styles.srOnly}>
+            Heart
+          </h2>
+          {!heart || (lastRhr === null && lastHrv === null) ? (
+            <p className={styles.empty}>
+              No resting heart rate or HRV between {start} and {end}. Both come from wearing your watch
+              overnight; sync it, then reload.
+            </p>
+          ) : (
+            <div className={styles.charts}>
+              <LineChart title="Resting heart rate" dates={heartDates} values={heart.map((d) => d.rhr)} unit="bpm" />
+              <LineChart title="Overnight HRV" dates={heartDates} values={heart.map((d) => d.hrv)} unit="ms" />
+            </div>
+          )}
+        </div>
+      </section>
+
+      <section className={styles.panel} aria-labelledby="records-title">
+        <Call
+          method="getPersonalRecord"
+          result={outcome("records", records?.records.length ?? 0, "running record", "running records")}
+          ms={ms?.records}
+        />
+        <Call method="getEarnedBadges" result={outcome("badges", badges?.length ?? 0, "badge", "badges")} ms={ms?.badges} />
+        <div className={`${styles.body} ${styles.split}`}>
+          <div>
+            <h2 id="records-title" className={styles.heading}>
+              Personal records
+            </h2>
+            {!records ? (
+              <p className={styles.empty}>Garmin didn&apos;t return personal records. Reload to try again.</p>
+            ) : records.records.length === 0 ? (
+              <p className={styles.empty}>No running records yet. Garmin sets them from your runs.</p>
+            ) : (
+              <table className={styles.records}>
+                <tbody>
+                  {records.records.map((r) => (
+                    <tr key={r.typeId}>
+                      <th scope="row">{r.label}</th>
+                      <td className={styles.num}>{formatRecord(r)}</td>
+                      <td className={styles.where}>
+                        {r.activityId !== null ? (
+                          <a href={`https://connect.garmin.com/modern/activity/${r.activityId}`}>{r.activityName || "Activity"}</a>
+                        ) : (
+                          r.activityName
+                        )}
+                        {r.date && <span>{shortDate(r.date)}</span>}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+            {records && records.other > 0 && (
+              <p className={styles.more}>
+                Plus {count(records.other, "record", "records")} in other sports, whose units this demo doesn&apos;t map.
+              </p>
+            )}
+          </div>
+          <div>
+            <h2 className={styles.heading}>Latest badges</h2>
+            {!badges ? (
+              <p className={styles.empty}>Garmin didn&apos;t return badges. Reload to try again.</p>
+            ) : badges.length === 0 ? (
+              <p className={styles.empty}>No badges earned yet.</p>
+            ) : (
+              <>
+                <ul className={styles.badges}>
+                  {badges.slice(0, BADGE_LIMIT).map((b) => (
+                    <li key={b.id}>
+                      <strong>{b.name}</strong>
+                      {b.times > 1 && <span className={styles.times}>×{b.times}</span>}
+                      <span className={styles.badgeDate}>{b.earned ? shortDate(b.earned) : ""}</span>
+                    </li>
+                  ))}
+                </ul>
+                {badges.length > BADGE_LIMIT && (
+                  <p className={styles.more}>
+                    Showing the latest {BADGE_LIMIT} of {badges.length}.
+                  </p>
+                )}
+              </>
+            )}
+          </div>
         </div>
       </section>
 

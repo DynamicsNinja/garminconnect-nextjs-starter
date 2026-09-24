@@ -325,3 +325,102 @@ div.demo {
 .footer a {
   color: inherit;
 }
+
+/* Records and badges: two columns that stack on narrow screens. */
+.split {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 380px), 1fr));
+  gap: 24px 32px;
+}
+
+.heading {
+  margin: 0 0 8px;
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.records {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.records th,
+.records td {
+  padding: 8px 0;
+  border-bottom: 1px solid var(--grid);
+  text-align: left;
+  vertical-align: baseline;
+}
+
+.records tr:last-child th,
+.records tr:last-child td {
+  border-bottom: 0;
+}
+
+.records th {
+  font-weight: 500;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.records .num {
+  padding: 8px 16px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.where {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+.where a {
+  color: var(--text-primary);
+}
+
+.where span {
+  display: block;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+.badges {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.badges li {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--grid);
+}
+
+.badges li:last-child {
+  border-bottom: 0;
+}
+
+.badges strong {
+  font-weight: 500;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.times {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+}
+
+.badgeDate {
+  margin-left: auto;
+  flex-shrink: 0;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}

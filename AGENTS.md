@@ -29,6 +29,12 @@ Python's `garminconnect`.
   only the fields the library types on `Activity` (`activityName`, `startTimeLocal`, `distance` in
   meters, `duration` in seconds, `activityType.typeKey`). `sportOf` groups type keys into the
   sports `src/components/ActivityIcon.tsx` draws; unknown keys fall back to `other`.
+- **Heart, records and badges** are mapped in `src/lib/heart.ts` and `src/lib/records.ts`.
+  `getHrvDataRange` and `getEarnedBadges` pass Garmin's payload through untyped, so
+  `hrvSummaries[].lastNightAvg`, `badgeName` and `badgeEarnedDate` are read defensively and map
+  to `null`/fallbacks when missing. Personal records map only the running `typeId`s 1–7 the
+  library documents; others are counted, not shown. These four calls go through `attempt()` in
+  `page.tsx`, so a failure empties one panel instead of the page.
 - **Dates are UTC calendar dates**, which is how Garmin keys them.
 - **Three modes** (`src/lib/mode.ts`): `local` (tokens on disk), `public` (`GARMIN_PUBLIC=1`:
   each visitor's tokens only in their own encrypted cookie — never add server-side storage of

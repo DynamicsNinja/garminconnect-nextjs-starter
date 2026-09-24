@@ -37,8 +37,9 @@ export default async function Privacy() {
       <h2>While you&apos;re signed in</h2>
       <ul>
         <li>
-          Each page view reads your name, your recent sleep (score and duration) and your recent
-          activities (name, type, start time, distance, duration) from Garmin, draws the page, and
+          Each page view reads your name, your recent sleep (score and duration), resting heart
+          rate and HRV, your recent activities (name, type, start time, distance, duration), your
+          personal records and your earned badges from Garmin, draws the page, and
           discards the data. It is not stored.
         </li>
         <li>The app only reads. It never writes anything to your Garmin account.</li>
