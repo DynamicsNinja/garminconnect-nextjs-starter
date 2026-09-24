@@ -1,0 +1,36 @@
+.call {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 4px 16px;
+  padding: 10px 14px;
+  background: var(--code-bg);
+  color: var(--code-text);
+  font-family: var(--mono);
+  font-size: 0.8rem;
+  line-height: 1.5;
+}
+
+.call code {
+  font: inherit;
+  overflow-wrap: anywhere;
+}
+
+.kw {
+  color: var(--code-kw);
+}
+
+.fn {
+  color: var(--code-fn);
+  font-weight: 600;
+}
+
+.str {
+  color: var(--code-str);
+}
+
+.result {
+  color: var(--code-muted);
+  white-space: nowrap;
+}

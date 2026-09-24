@@ -15,6 +15,23 @@
   --series-2: #eb6834;
   --accent: #2a78d6;
   --danger: #d03b3b;
+  --mono: ui-monospace, "Cascadia Code", "SF Mono", Menlo, Consolas, monospace;
+  /* The call bar is dark in both themes: it reads as code, not chrome. */
+  --code-bg: #17191e;
+  --code-text: #d7dae0;
+  --code-muted: #8b919c;
+  --code-kw: #c49bf5;
+  --code-fn: #7cc4ff;
+  --code-str: #a8d68a;
+  /* One hue per sport, for the activity icons. */
+  --sport-run: #d9602c;
+  --sport-ride: #2a78d6;
+  --sport-swim: #0e8fa0;
+  --sport-walk: #3b8f4f;
+  --sport-hike: #7a7a24;
+  --sport-strength: #7c52c9;
+  --sport-yoga: #bd4a86;
+  --sport-other: #6f6e69;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -34,6 +51,15 @@
     --series-2: #d95926;
     --accent: #2a78d6;
     --danger: #e66767;
+    --code-bg: #111214;
+    --sport-run: #f07a45;
+    --sport-ride: #5598e7;
+    --sport-swim: #33b3c4;
+    --sport-walk: #5cb36f;
+    --sport-hike: #b0b04a;
+    --sport-strength: #a07ee6;
+    --sport-yoga: #e072ac;
+    --sport-other: #a3a29b;
   }
 }
 
@@ -51,4 +77,13 @@ body {
 
 a {
   color: var(--accent);
+}
+
+code {
+  font-family: var(--mono);
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }

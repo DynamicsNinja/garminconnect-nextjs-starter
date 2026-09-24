@@ -1,14 +1,6 @@
 .card {
   margin: 0;
-  padding: 16px 16px 12px;
-  background: var(--surface-1);
-  border: 1px solid var(--border);
-  border-radius: 12px;
   min-width: 0;
-}
-
-.wide {
-  grid-column: 1 / -1;
 }
 
 .title {
@@ -53,76 +45,6 @@
   fill: var(--series-1-hover);
 }
 
-.line {
-  fill: none;
-  stroke-width: 2;
-  stroke-linejoin: round;
-  stroke-linecap: round;
-}
-
-.line.primary {
-  stroke: var(--series-1);
-}
-
-.line.secondary {
-  stroke: var(--series-2);
-}
-
-.dot {
-  stroke: var(--surface-1);
-  stroke-width: 2;
-}
-
-.dot.primary {
-  fill: var(--series-1);
-}
-
-.dot.secondary {
-  fill: var(--series-2);
-}
-
-.crosshair {
-  stroke: var(--baseline);
-  stroke-width: 1;
-}
-
-.endLabel {
-  font-size: 11px;
-  font-weight: 600;
-  fill: var(--text-secondary);
-}
-
-.legend {
-  display: flex;
-  gap: 16px;
-  list-style: none;
-  margin: 0 0 6px;
-  padding: 0;
-  font-size: 0.8rem;
-  color: var(--text-secondary);
-}
-
-.legend li {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.key {
-  display: inline-block;
-  width: 14px;
-  height: 2px;
-  border-radius: 1px;
-}
-
-.key.primary {
-  background: var(--series-1);
-}
-
-.key.secondary {
-  background: var(--series-2);
-}
-
 .tooltip {
   position: absolute;
   top: 0;
@@ -144,12 +66,6 @@
 .tooltip strong {
   color: var(--text-primary);
   font-weight: 600;
-}
-
-.tipRow {
-  display: flex;
-  align-items: center;
-  gap: 6px;
 }
 
 .table {

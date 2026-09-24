@@ -27,7 +27,7 @@ export function LoginForm({ mode, notice }: { mode: Mode; notice?: string }) {
           <ul>
             <li>Your email and password are sent to Garmin&apos;s sign-in service and never stored.</li>
             <li>Your session is kept only in your browser, as an encrypted cookie. Nothing about you is saved on this server.</li>
-            <li>The app only reads your sleep data. Sign out removes the cookie.</li>
+            <li>The app only reads your sleep and activities. Sign out removes the cookie.</li>
           </ul>
           <p>
             Rather not type your password into someone else&apos;s site? Fair — run the template

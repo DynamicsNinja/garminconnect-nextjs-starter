@@ -2,7 +2,7 @@ import Link from "next/link";
 import { connection } from "next/server";
 import styles from "../page.module.css";
 
-export const metadata = { title: "Privacy — Garmin sleep & HRV" };
+export const metadata = { title: "Privacy — garminconnect-js demo" };
 
 /** What this app does with a visitor's data, stated as facts about the code. Not legal advice. */
 export default async function Privacy() {
@@ -37,8 +37,9 @@ export default async function Privacy() {
       <h2>While you&apos;re signed in</h2>
       <ul>
         <li>
-          Each page view reads your recent sleep data (score, duration, HRV, resting heart rate)
-          and your name from Garmin, draws the charts, and discards the data. It is not stored.
+          Each page view reads your name, your recent sleep (score and duration) and your recent
+          activities (name, type, start time, distance, duration) from Garmin, draws the page, and
+          discards the data. It is not stored.
         </li>
         <li>The app only reads. It never writes anything to your Garmin account.</li>
       </ul>

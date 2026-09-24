@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Garmin sleep & HRV",
-  description: "A starter dashboard for garminconnect-js: sign in to Garmin Connect, chart sleep and HRV.",
+  title: "garminconnect-js — live demo",
+  description: "A live demo of garminconnect-js: sign in to Garmin Connect and see your sleep and activities, with the library call behind each panel.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

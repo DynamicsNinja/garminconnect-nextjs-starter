@@ -10,8 +10,9 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 # This starter
 
-A single-user Next.js 16 dashboard over `garminconnect-js`. Before changing anything that touches
-Garmin, read `node_modules/garminconnect-js/AGENTS.md` — the library's own agent briefing, with
+A Next.js 16 live demo of `garminconnect-js`: each panel prints the library call that filled it
+(`src/components/Call.tsx`), so keep that call bar accurate when you change what a panel fetches.
+Before changing anything that touches Garmin, read `node_modules/garminconnect-js/AGENTS.md` — the library's own agent briefing, with
 the real method names, return shapes and verification status. Do not invent method names from
 Python's `garminconnect`.
 
@@ -22,9 +23,12 @@ Python's `garminconnect`.
   formatter function; a Server Component cannot pass a function to a Client Component (it fails
   at runtime, not at build time).
 - **`getSleepDaily` rows are `{ calendarDate, values: {...} }`.** The fields used here
-  (`sleepScore`, `totalSleepTimeInSeconds`, `avgOvernightHrv`, `hrv7dAverage`,
-  `restingHeartRate`) were read off a real account; the library types the row loosely. Map them in
-  `src/lib/sleep.ts`, nowhere else.
+  (`sleepScore`, `totalSleepTimeInSeconds`) were read off a real account; the library types the
+  row loosely. Map them in `src/lib/sleep.ts`, nowhere else.
+- **Activities come from `getActivitiesByDate`** and are mapped in `src/lib/activities.ts`, using
+  only the fields the library types on `Activity` (`activityName`, `startTimeLocal`, `distance` in
+  meters, `duration` in seconds, `activityType.typeKey`). `sportOf` groups type keys into the
+  sports `src/components/ActivityIcon.tsx` draws; unknown keys fall back to `other`.
 - **Dates are UTC calendar dates**, which is how Garmin keys them.
 - **Three modes** (`src/lib/mode.ts`): `local` (tokens on disk), `public` (`GARMIN_PUBLIC=1`:
   each visitor's tokens only in their own encrypted cookie — never add server-side storage of

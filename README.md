@@ -1,13 +1,15 @@
-# Garmin sleep & HRV — a Next.js starter
+# garminconnect-js live demo — a Next.js starter
 
-A small Next.js app that signs in to Garmin Connect and charts your sleep score, sleep duration
-and overnight HRV. It's built on [`garminconnect-js`](https://github.com/DynamicsNinja/garminconnect-js),
-and it's meant to be copied: click **Use this template**, then make it yours.
+A small Next.js app that signs in to Garmin Connect and shows your sleep and your recent
+activities. It's the live demo for [`garminconnect-js`](https://github.com/DynamicsNinja/garminconnect-js):
+each panel prints the library call that filled it, with its real arguments, the number of rows
+that came back, and how long Garmin took. It's also meant to be copied: click **Use this
+template**, then make it yours.
 
 **Live demo:** [garmin.ficdev.xyz](https://garmin.ficdev.xyz). It shows synthetic data until you
 sign in with your own Garmin account.
 
-![The dashboard, showing synthetic demo data](docs/screenshot.png)
+![The demo page, showing synthetic data](docs/screenshot.png)
 
 <sub>**Unofficial.** Not affiliated with, endorsed by, or supported by Garmin. Garmin and Garmin
 Connect are trademarks of Garmin Ltd. or its subsidiaries. The screenshot shows synthetic demo
@@ -15,14 +17,17 @@ data.</sub>
 
 ## What it shows
 
-- **Last night at a glance:** sleep score, time asleep, overnight HRV and resting heart rate.
-- **Charts for 7, 30 or 90 days:** sleep score, sleep duration, and nightly HRV against its 7-day
-  average. Hover a chart for exact values, or open its table.
+- **At a glance:** last night's sleep score and time asleep, plus how many activities you logged
+  and your total active time over the selected range.
+- **Sleep for 7, 30 or 90 days:** sleep score and duration charts. Hover a chart for exact
+  values, or open its table.
+- **Activities:** your latest activities in the range, each with a sport icon, its type, its start
+  time, its distance and its duration.
 - **Sign-in with MFA:** if Garmin sends you a code, a second step asks for it.
 
-Everything comes from a single library call, `garmin.getSleepDaily(start, end)`, which returns
-one row per night with the score, duration, HRV and resting heart rate together. The charts are
-plain SVG and add no dependencies.
+Three library calls fill the page: `garmin.fullName()`, `garmin.getSleepDaily(start, end)` and
+`garmin.getActivitiesByDate(start, end)`. The charts and icons are plain SVG and add no
+dependencies.
 
 ## Run it
 
@@ -96,7 +101,11 @@ server's IP, not a wrong password.
 | `src/lib/rate-limit.ts` | In-memory, per-IP and global sign-in limits. |
 | `src/lib/seal.ts` | AES-256-GCM sealing for the MFA and token cookies. |
 | `src/lib/sleep.ts` | Flattens `getSleepDaily` rows into the `Night` shape the page uses. |
-| `src/components/charts.tsx` | Dependency-free SVG column and line charts, with hover and table views. |
+| `src/lib/activities.ts` | Flattens `getActivitiesByDate` rows and groups Garmin's type keys into sports. |
+| `src/lib/demo.ts` | Deterministic synthetic sleep and activities for demo mode. |
+| `src/components/Call.tsx` | The call bar above each panel: method, arguments, rows returned, time taken. |
+| `src/components/ActivityIcon.tsx` | Inline SVG icons, one per sport. |
+| `src/components/charts.tsx` | Dependency-free SVG column charts, with hover and table views. |
 
 The library only runs on the server: it uses `node:crypto`, and your tokens must never reach the
 browser. Everything that touches Garmin lives in Server Components and Server Actions.
@@ -128,7 +137,8 @@ Connect's settings. This starter only reads, so it's unaffected.
 
 The library has 164 typed methods: activities, training readiness, body battery, workouts,
 courses and more. See its [API reference](https://github.com/DynamicsNinja/garminconnect-js/tree/main/docs/api).
-Adding a chart usually means one more call in `page.tsx` and another chart component.
+Adding a panel usually means one more call in `page.tsx`, a `<Call>` bar describing it, and a
+component to draw the result.
 
 ## License
 

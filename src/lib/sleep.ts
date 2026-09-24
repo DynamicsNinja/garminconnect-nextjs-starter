@@ -5,9 +5,6 @@ export interface Night {
   date: string;
   score: number | null;
   hours: number | null;
-  hrv: number | null;
-  hrv7d: number | null;
-  restingHr: number | null;
 }
 
 const num = (v: unknown): number | null => (typeof v === "number" && Number.isFinite(v) ? v : null);
@@ -27,9 +24,6 @@ export function toNights(rows: SleepDailyEntry[]): Night[] {
         date: r.calendarDate,
         score: num(v["sleepScore"]),
         hours: seconds === null ? null : Math.round((seconds / 3600) * 10) / 10,
-        hrv: num(v["avgOvernightHrv"]),
-        hrv7d: num(v["hrv7dAverage"]),
-        restingHr: num(v["restingHeartRate"]),
       };
     });
 }
