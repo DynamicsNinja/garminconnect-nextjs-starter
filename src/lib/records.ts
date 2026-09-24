@@ -21,7 +21,7 @@ export interface Badge {
   earned: string;
   /** How many times it was earned; 1 for one-off badges. */
   times: number;
-  /** Garmin's badge artwork, or null when the row has no id to build it from. */
+  /** Garmin's badge artwork (`badgeImageUrls.small`), or null when the library couldn't build one. */
   image: string | null;
   /** What earning it takes, from Garmin's translation file (`badge-text.ts`); `""` if unknown. */
   description: string;
@@ -85,16 +85,6 @@ export function toRecords(rows: PersonalRecords | null): { records: PersonalReco
 }
 
 /**
- * The API sends no image URL. Garmin Connect's own badge page builds it from `badgeUuid` (set on
- * newer challenge badges) or else `badgeId`, and serves it without a session. `xhdpi` `sml` is
- * ~130px wide: sharp at the size the page draws it.
- */
-function badgeImage(b: { badgeId?: number; badgeUuid?: unknown }): string | null {
-  const key = str(b.badgeUuid) || (b.badgeId === undefined ? "" : String(b.badgeId));
-  return /^[A-Za-z0-9]+$/.test(key) ? `https://connect.garmin.com/images/badges/xhdpi/badge_${key}_sml.png` : null;
-}
-
-/**
  * `getEarnedBadges` rows are typed loosely (`Badge`); the fields read here are the ones 0.4.0 types
  * on `BadgeDetail`, which the same rows carry, so they're read through that type. A missing one
  * falls back rather than failing. Newest first.
@@ -106,7 +96,7 @@ export function toBadges(rows: GarminBadge[] | null, descriptions: Map<string, s
       name: str(b.badgeName) || "Badge",
       earned: day(b.badgeEarnedDate),
       times: b.badgeEarnedNumber ?? 1,
-      image: badgeImage(b),
+      image: b.badgeImageUrls?.small ?? null,
       description: descriptions.get(str(b.badgeKey)) ?? "",
       activity:
         b.badgeAssocType === "activityId" && b.badgeAssocDataId
@@ -130,7 +120,7 @@ export function toSeries(detail: BadgeDetail | null): BadgeSeries | null {
     .map((b) => ({
       id: b.badgeId!,
       name: str(b.badgeName) || "Badge",
-      image: badgeImage(b),
+      image: b.badgeImageUrls?.small ?? null,
       earned: b.earnedByMe === true,
       current: b.badgeId === detail.badgeId,
     }));

@@ -32,9 +32,8 @@ Python's `garminconnect`.
 - **Heart, records and badges** are mapped in `src/lib/heart.ts` and `src/lib/records.ts`.
   `getHrvDataRange` and `getEarnedBadges` pass Garmin's payload through untyped, so
   `hrvSummaries[].lastNightAvg`, `badgeName` and `badgeEarnedDate` are read defensively and map
-  to `null`/fallbacks when missing. Badge rows carry no image URL; `badgeImage` builds Garmin's
-  (`/images/badges/xhdpi/badge_<badgeUuid ?? badgeId>_sml.png`, read off Garmin Connect's own
-  badge page, public). Demo badges have no image. Badge descriptions come from Garmin's public translation file
+  to `null`/fallbacks when missing. Badge artwork is the library's `badgeImageUrls.small`
+  (Garmin sends no image URL; `garminconnect-js` 0.5.0+ adds it) — don't rebuild the URL here. Demo badges have no image. Badge descriptions come from Garmin's public translation file
   (`src/lib/badge-text.ts`, cached a day); the page makes one `getBadgeDetail` call, for the
   newest badge that has a `badgeSeriesId`, to draw its series. Personal records map only the running `typeId`s 1–7 the
   library documents; others are counted, not shown. These calls go through `attempt()` in
